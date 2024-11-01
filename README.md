@@ -1,9 +1,9 @@
 Akashic Table
 ====
 
-A work in progress collection component used in [Bloo](https://github.com/ptsochantaris/bloo)
+A work-in-progress collection component used in [Bloo](https://github.com/ptsochantaris/bloo)
 
-// Originally derived from: https://github.com/akirark/MemoryMappedFileSwift
+_Originally derived from: [MemoryMappedFileSwift](https://github.com/akirark/MemoryMappedFileSwift)_
 
 ## License
 
