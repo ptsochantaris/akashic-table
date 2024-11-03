@@ -1,5 +1,5 @@
-import Foundation
 @testable import AkashicTable
+import Foundation
 import Testing
 
 struct TestType: RowIdentifiable, Equatable {

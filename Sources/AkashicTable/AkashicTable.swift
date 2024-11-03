@@ -5,7 +5,6 @@ public protocol RowIdentifiable {
 }
 
 public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, ContiguousBytes, MutableCollection {
-
     public enum AkashicTableError: LocalizedError {
         case ioError(String)
         case validationFailed(String)
@@ -50,10 +49,10 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
 
     public var count: Int {
         get {
-            buffer.loadUnaligned(as: Int.self)
+            buffer!.loadUnaligned(as: Int.self)
         }
         set {
-            buffer.storeBytes(of: newValue, as: Int.self)
+            buffer!.storeBytes(of: newValue, as: Int.self)
         }
     }
 
@@ -61,9 +60,10 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
     public var endIndex: Int { count }
 
     private var capacity = 0
-    private let fileDescriptor: Int32
-    private var buffer: UnsafeMutableRawPointer!
+    private var fileDescriptor: Int32 = 0
+    private var buffer: UnsafeMutableRawPointer?
     private var mappedSize = 0
+    private let path: String
 
     public func index(after i: Int) -> Int { i + 1 }
 
@@ -73,10 +73,7 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
     }
 
     public init(at path: String, minimumCapacity: Int, validateOrder: Bool) throws {
-        fileDescriptor = open(path, O_CREAT | O_RDWR, S_IREAD | S_IWRITE)
-        if fileDescriptor == 0 {
-            throw AkashicTableError.ioError("Could not create or open file at \(path)")
-        }
+        self.path = path
 
         try start(minimumCapacity: minimumCapacity)
 
@@ -107,6 +104,8 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
     }
 
     private func index(for rowId: Int64) -> Int? {
+        guard let buffer else { return nil }
+
         var lowerIndex = 0
         var upperIndex = count - 1
 
@@ -130,7 +129,6 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         var currentCount = count
         let newMaxCount = currentCount + sequence.count
         if newMaxCount >= capacity {
-            stop()
             try start(minimumCapacity: newMaxCount + 10000)
         }
 
@@ -182,10 +180,12 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
     }
 
     public func makeIterator() -> AkashicTableIterator {
-        AkashicTableIterator(buffer: buffer, stride: step, counterSize: counterSize)
+        AkashicTableIterator(buffer: buffer!, stride: step, counterSize: counterSize)
     }
 
     public func delete(at index: Int) {
+        guard let buffer else { return }
+
         let existingCount = count
         if index >= existingCount {
             return
@@ -206,16 +206,21 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
 
     public subscript(position: Int) -> T {
         get {
-            buffer.loadUnaligned(fromByteOffset: offset(for: position), as: T.self)
+            buffer!.loadUnaligned(fromByteOffset: offset(for: position), as: T.self)
         }
-        set(newValue) {
-            buffer.storeBytes(of: newValue, toByteOffset: offset(for: position), as: T.self)
+        set {
+            buffer!.storeBytes(of: newValue, toByteOffset: offset(for: position), as: T.self)
         }
     }
 
     private func start(minimumCapacity: Int) throws {
         if buffer != nil {
-            return
+            shutdown()
+        }
+
+        fileDescriptor = open(path, O_CREAT | O_RDWR, S_IREAD | S_IWRITE)
+        if fileDescriptor == 0 {
+            throw AkashicTableError.ioError("Could not create or open file at \(path)")
         }
 
         var statInfo = stat()
@@ -240,10 +245,15 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         capacity = (mappedSize - counterSize) / step
         buffer = mmap(UnsafeMutableRawPointer(mutating: nil), mappedSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0)
 
+        if buffer == nil {
+            close(fileDescriptor)
+            throw AkashicTableError.ioError("Cannot map backing file on disk")
+        }
+
         // print("Memory mapped index size: \(Double(mappedSize) / 1_000_000_000) Gb")
     }
 
-    private func stop() {
+    public func shutdown() {
         guard let buf = buffer else {
             return
         }
@@ -251,19 +261,15 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         munmap(buf, mappedSize)
         buffer = nil
         mappedSize = 0
+        close(fileDescriptor)
     }
 
-    public func pause() {
-        stop()
+    deinit {
+        shutdown()
     }
 
     public func resume() throws {
         try start(minimumCapacity: 0)
-    }
-
-    public func shutdown() {
-        stop()
-        close(fileDescriptor)
     }
 
     public func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {

@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "58EBA9E2-863F-4FAE-AB0A-70257500B3A8",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "AkashicTableTests",
+        "name" : "AkashicTableTests"
+      }
+    }
+  ],
+  "version" : 1
+}

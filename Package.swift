@@ -8,7 +8,7 @@ let package = Package(
         .library(
             name: "AkashicTable",
             targets: ["AkashicTable"]
-        )
+        ),
     ],
     targets: [
         .target(
@@ -16,6 +16,6 @@ let package = Package(
         .testTarget(
             name: "AkashicTableTests",
             dependencies: ["AkashicTable"]
-        )
+        ),
     ]
 )
