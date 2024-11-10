@@ -64,6 +64,7 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
     private var buffer: UnsafeMutableRawPointer?
     private var mappedSize = 0
     private let path: String
+    private let useCache: Bool
 
     public func index(after i: Int) -> Int { i + 1 }
 
@@ -72,8 +73,9 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         counterSize + step * index
     }
 
-    public init(at path: String, minimumCapacity: Int, validateOrder: Bool) throws {
+    public init(at path: String, minimumCapacity: Int, useCache: Bool = true, validateOrder: Bool = false) throws {
         self.path = path
+        self.useCache = useCache
 
         try start(minimumCapacity: minimumCapacity)
 
@@ -243,7 +245,7 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         }
 
         capacity = (mappedSize - counterSize) / step
-        buffer = mmap(UnsafeMutableRawPointer(mutating: nil), mappedSize, PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0)
+        buffer = mmap(nil, mappedSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NOCACHE, fileDescriptor, 0)
 
         if buffer == nil {
             close(fileDescriptor)

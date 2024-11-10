@@ -20,7 +20,7 @@ struct TestType: RowIdentifiable, Equatable {
         _ = try? fm.removeItem(atPath: embeddingPath)
     }
 
-    let collection = try AkashicTable<TestType>(at: embeddingPath, minimumCapacity: 10, validateOrder: true)
+    let collection = try AkashicTable<TestType>(at: embeddingPath, minimumCapacity: 10)
 
     for i in 0 ..< 100 {
         let item = TestType(rowId: Int64(i))
@@ -72,7 +72,16 @@ struct TestType: RowIdentifiable, Equatable {
 
     collection.shutdown()
 
-    let collection2 = try AkashicTable<TestType>(at: embeddingPath, minimumCapacity: 10, validateOrder: true)
+    let collection2 = try AkashicTable<TestType>(at: embeddingPath, minimumCapacity: 10, useCache: false, validateOrder: true)
     #expect(collection2[0 ..< 10].map(\.rowId) == [10, 26, 27, 28, 29, 30, 31, 32, 33, 34])
+    #expect(collection2.count == 74)
+    try collection2.append(TestType(rowId: 123))
+    #expect(collection2.last?.rowId == 123)
+    #expect(collection2.count == 75)
     collection2.shutdown()
+
+    let collection3 = try AkashicTable<TestType>(at: embeddingPath, minimumCapacity: 10, useCache: false, validateOrder: true)
+    #expect(collection3.last?.rowId == 123)
+    #expect(collection3.count == 75)
+    collection3.shutdown()
 }
