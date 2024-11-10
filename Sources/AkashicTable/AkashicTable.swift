@@ -245,7 +245,13 @@ public final class AkashicTable<T: RowIdentifiable>: RandomAccessCollection, Con
         }
 
         capacity = (mappedSize - counterSize) / step
-        buffer = mmap(nil, mappedSize, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_NOCACHE, fileDescriptor, 0)
+
+        let access = PROT_READ | PROT_WRITE
+        var flags = MAP_SHARED
+        if !useCache {
+            flags |= MAP_NOCACHE
+        }
+        buffer = mmap(nil, mappedSize, access, flags, fileDescriptor, 0)
 
         if buffer == nil {
             close(fileDescriptor)
